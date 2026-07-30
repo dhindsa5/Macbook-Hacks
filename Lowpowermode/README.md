@@ -1,0 +1,161 @@
+What you will create
+You need 2 files:
+•	The shell script, for example:  /usr/local/bin/battery_lpm.sh .
+•	The launchd plist, for example:  /Library/LaunchDaemons/com.sharanjit.battery_lpm.plist .[stackoverflow +1]
+The script does the battery checking, and the plist tells macOS to run that script automatically at boot.[medium +1]
+Step 1: Save the script
+Open Terminal and create the script file:  
+
+sudo nano /usr/local/bin/battery_lpm.sh
+
+Paste this script:
+
+#!/bin/bash
+
+LOGFILE="/var/log/battery_lpm.log"
+LOW_THRESHOLD=30
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOGFILE"
+}
+
+get_battery_pct() {
+    pmset -g batt | grep -Eo '[0-9]+%' | cut -d% -f1 | head -n 1
+}
+
+get_power_source() {
+    pmset -g batt | grep -q "AC Power" && echo "AC" || echo "Battery"
+}
+
+get_lpm_status() {
+    pmset -g | awk '/lowpowermode/ {print $2; exit}'
+}
+
+log "battery_lpm started"
+
+while true; do
+    BATT_PCT="$(get_battery_pct)"
+    POWER_SRC="$(get_power_source)"
+    LPM_STATUS="$(get_lpm_status)"
+
+    if [ -z "$BATT_PCT" ] || [ -z "$LPM_STATUS" ]; then
+        log "unable to read status"
+        sleep 120
+        continue
+    fi
+
+    log "check: source=${POWER_SRC}, battery=${BATT_PCT}%, lowpowermode=${LPM_STATUS}"
+
+    if [ "$POWER_SRC" = "Battery" ] && [ "$BATT_PCT" -le "$LOW_THRESHOLD" ] && [ "$LPM_STATUS" -eq 0 ]; then
+        log "enabling lowpowermode on battery"
+        /usr/bin/sudo /usr/bin/pmset -b lowpowermode 1
+    elif [ "$POWER_SRC" = "AC" ] && [ "$LPM_STATUS" -eq 1 ]; then
+        log "disabling lowpowermode on AC"
+        /usr/bin/sudo /usr/bin/pmset -c lowpowermode 0
+    fi
+
+    sleep 120
+done
+
+Save and exit with:
+•	 Ctrl + O 
+•	 Enter 
+•	 Ctrl + X 
+Then make it executable and root-owned:
+
+sudo chmod +x /usr/local/bin/battery_lpm.sh
+sudo chown root:wheel /usr/local/bin/battery_lpm.sh
+
+
+That makes the script runnable and keeps ownership consistent for a system service.
+Step 2: Save the plist
+Create the launchd file:
+
+sudo nano /Library/LaunchDaemons/com.sharanjit.battery_lpm.plist
+
+Paste this plist:
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.sharanjit.battery_lpm</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/usr/local/bin/battery_lpm.sh</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/var/log/battery_lpm.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/var/log/battery_lpm.err.log</string>
+</dict>
+</plist>
+
+Save and exit the same way:
+•	 Ctrl + O 
+•	 Enter 
+•	 Ctrl + X 
+Then set the required ownership and permissions:
+
+sudo chown root:wheel /Library/LaunchDaemons/com.sharanjit.battery_lpm.plist
+sudo chmod 644 /Library/LaunchDaemons/com.sharanjit.battery_lpm.plist
+
+That is the normal permission setup for a LaunchDaemon plist in  /Library/LaunchDaemons/ .[discussions.apple +1]
+Step 3: Validate the plist
+Check that the plist is valid XML:
+
+plutil -lint /Library/LaunchDaemons/com.sharanjit.battery_lpm.plist
+
+If it says  OK , the file is fine.[medium +1]
+Step 4: Load the daemon
+Load it into launchd:
+
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.sharanjit.battery_lpm.plist
+
+Then start it immediately:
+
+sudo launchctl kickstart -k system/com.sharanjit.battery_lpm
+
+That registers the job as a system service and starts it right away.[superuser +1]
+Step 5: Confirm it is running
+Check the loaded job:
+
+sudo launchctl list | grep battery_lpm
+
+Check the logs:
+
+cat /var/log/battery_lpm.log
+cat /var/log/battery_lpm.out.log
+cat /var/log/battery_lpm.err.log
+
+If it is working, the log should show startup and battery check messages.[maphorie +1]
+What each file does
+•	 /usr/local/bin/battery_lpm.sh  is the actual logic that reads battery status and runs  pmset .[gingerscripting +1]
+•	 /Library/LaunchDaemons/com.sharanjit.battery_lpm.plist  tells macOS to run that script automatically as a root daemon.[medium +1]
+•	 /var/log/battery_lpm.log  records your custom status messages.
+•	 /var/log/battery_lpm.out.log  and  /var/log/battery_lpm.err.log  capture standard output and errors from launchd.[stackexchange +1]
+What to edit later
+If you want to change the battery threshold, edit this line in the script:
+
+LOW_THRESHOLD=30
+
+If you want a different check interval, change:
+
+sleep 120
+
+After editing, reload the daemon:
+
+sudo launchctl bootout system /Library/LaunchDaemons/com.sharanjit.battery_lpm.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.sharanjit.battery_lpm.plist
+sudo launchctl kickstart -k system/com.sharanjit.battery_lpm
