@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.sharanjit.battery_lpm</string>
+    <string>com.'users_macbook_name'.battery_lpm</string>
 
     <key>ProgramArguments</key>
     <array>
