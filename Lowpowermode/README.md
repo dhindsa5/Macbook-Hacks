@@ -171,3 +171,30 @@ After editing, reload the daemon:
 sudo launchctl bootout system /Library/LaunchDaemons/com.'users_macbook_name'.battery_lpm.plist
 sudo launchctl bootstrap system /Library/LaunchDaemons/com.'users_macbook_name'.battery_lpm.plist
 sudo launchctl kickstart -k system/com.'users_macbook_name't.battery_lpm
+
+
+Temporary stop:
+
+sudo launchctl stop system/com.sharanjit.battery_lpm
+
+If that does not work or the job restarts, kill the current process:
+
+sudo launchctl kill SIGTERM system/com.sharanjit.battery_lpm
+
+or, if needed:
+
+sudo launchctl kill SIGKILL system/com.sharanjit.battery_lpm
+
+These are short-term stops; the job can still be restarted by launchd depending on how it is configured.
+
+Full stop:
+
+sudo launchctl bootout system /Library/LaunchDaemons/com.sharanjit.battery_lpm.plist
+
+That removes it from launchd and prevents it from running until you load it again.
+
+Confirm it is gone:
+
+sudo launchctl list | grep battery_lpm
+
+If nothing appears, it is no longer loaded.
