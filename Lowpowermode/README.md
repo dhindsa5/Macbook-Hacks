@@ -40,7 +40,6 @@ if [ "$POWER_SRC" = "Battery" ] && [ "$BATT_PCT" -le "$LOW_THRESHOLD" ] && [ "$L
     sudo pmset -b lowpowermode 1
 fi
 
-
 Save and exit with:
 •	 Ctrl + O 
 •	 Enter 
