@@ -1,5 +1,6 @@
-What you will create
-You need 2 files:
+You will have to create 2 files:
+
+But first notice that you have to change: "com.'users_macbook_name'.battery_lpm.plist" according to your users name.
 
 •	The shell script, for example:  /usr/local/bin/battery_lpm.sh .
 •	The launchd plist, for example:  /Library/LaunchDaemons/com.'users_macbook_name'.battery_lpm.plist .
@@ -175,21 +176,21 @@ sudo launchctl kickstart -k system/com.'users_macbook_name't.battery_lpm
 
 Temporary stop:
 
-sudo launchctl stop system/com.sharanjit.battery_lpm
+sudo launchctl stop system/com.'users_macbook_name'.battery_lpm
 
 If that does not work or the job restarts, kill the current process:
 
-sudo launchctl kill SIGTERM system/com.sharanjit.battery_lpm
+sudo launchctl kill SIGTERM system/com.'users_macbook_name'.battery_lpm
 
 or, if needed:
 
-sudo launchctl kill SIGKILL system/com.sharanjit.battery_lpm
+sudo launchctl kill SIGKILL system/com.'users_macbook_name'.battery_lpm
 
 These are short-term stops; the job can still be restarted by launchd depending on how it is configured.
 
 Full stop:
 
-sudo launchctl bootout system /Library/LaunchDaemons/com.sharanjit.battery_lpm.plist
+sudo launchctl bootout system /Library/LaunchDaemons/com.'users_macbook_name'.battery_lpm.plist
 
 That removes it from launchd and prevents it from running until you load it again.
 
