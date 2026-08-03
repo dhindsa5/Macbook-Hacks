@@ -1,6 +1,6 @@
 You will have to create 2 files:
 
-But first notice that you have to change: "com.'users_macbook_name'.battery_lpm.plist" according to your users name.
+But first notice that you have to change: "com.'users_macbook_name'.battery_lpm.plist" according to your users name at every mentioned place.
 
 •	The shell script, for example:  /usr/local/bin/battery_lpm.sh .
 •	The launchd plist, for example:  /Library/LaunchDaemons/com.'users_macbook_name'.battery_lpm.plist .
@@ -24,43 +24,22 @@ log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOGFILE"
 }
 
-get_battery_pct() {
-    pmset -g batt | grep -Eo '[0-9]+%' | cut -d% -f1 | head -n 1
-}
+BATT_PCT=$(pmset -g batt | grep -Eo '[0-9]+%' | cut -d% -f1 | head -n 1)
+POWER_SRC=$(pmset -g batt | grep -q "AC Power" && echo "AC" || echo "Battery")
+LPM_STATUS=$(pmset -g | awk '/lowpowermode/ {print $2; exit}')
 
-get_power_source() {
-    pmset -g batt | grep -q "AC Power" && echo "AC" || echo "Battery"
-}
+if [ -z "$BATT_PCT" ] || [ -z "$LPM_STATUS" ]; then
+    log "unable to read status"
+    exit 1
+fi
 
-get_lpm_status() {
-    pmset -g | awk '/lowpowermode/ {print $2; exit}'
-}
+log "check: source=${POWER_SRC}, battery=${BATT_PCT}%, lowpowermode=${LPM_STATUS}"
 
-log "battery_lpm started"
+if [ "$POWER_SRC" = "Battery" ] && [ "$BATT_PCT" -le "$LOW_THRESHOLD" ] && [ "$LPM_STATUS" -eq 0 ]; then
+    log "enabling lowpowermode on battery"
+    sudo pmset -b lowpowermode 1
+fi
 
-while true; do
-    BATT_PCT="$(get_battery_pct)"
-    POWER_SRC="$(get_power_source)"
-    LPM_STATUS="$(get_lpm_status)"
-
-    if [ -z "$BATT_PCT" ] || [ -z "$LPM_STATUS" ]; then
-        log "unable to read status"
-        sleep 120
-        continue
-    fi
-
-    log "check: source=${POWER_SRC}, battery=${BATT_PCT}%, lowpowermode=${LPM_STATUS}"
-
-    if [ "$POWER_SRC" = "Battery" ] && [ "$BATT_PCT" -le "$LOW_THRESHOLD" ] && [ "$LPM_STATUS" -eq 0 ]; then
-        log "enabling lowpowermode on battery"
-        /usr/bin/sudo /usr/bin/pmset -b lowpowermode 1
-    elif [ "$POWER_SRC" = "AC" ] && [ "$LPM_STATUS" -eq 1 ]; then
-        log "disabling lowpowermode on AC"
-        /usr/bin/sudo /usr/bin/pmset -c lowpowermode 0
-    fi
-
-    sleep 120
-done
 
 Save and exit with:
 •	 Ctrl + O 
@@ -199,3 +178,19 @@ Confirm it is gone:
 sudo launchctl list | grep battery_lpm
 
 If nothing appears, it is no longer loaded.
+
+Permanent Stop:
+
+sudo launchctl bootout system /Library/LaunchDaemons/com.'users_macbook_name'.battery_lpm.plist
+sudo launchctl disable system/com.'users_macbook_name'.battery_lpm
+
+Check it is disabled:
+
+sudo launchctl print-disabled system | grep battery_lpm
+sudo launchctl list | grep battery_lpm
+
+Re-enable later:
+
+sudo launchctl enable system/com.'users_macbook_name'.battery_lpm
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.'users_macbook_name'.battery_lpm.plist
+sudo launchctl kickstart -k system/com.'users_macbook_name'.battery_lpm
